@@ -6,7 +6,7 @@ import { initialData } from "@/data/initialData";
 
 interface PortfolioContextType {
   data: PortfolioData;
-  updateData: (newData: Partial<PortfolioData>) => void;
+  updateData: (newData: Partial<PortfolioData>) => Promise<boolean>;
   resetData: () => void;
   addMessage: (msg: Omit<ContactMessage, "id" | "createdAt">) => ContactMessage;
   deleteMessage: (id: string) => void;
@@ -31,44 +31,96 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     document.body.setAttribute("data-theme", theme);
   };
 
+  // 1. Initial Load: Fetch from Cloud DB First, fallback to LocalStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const merged: PortfolioData = {
-          ...initialData,
-          ...parsed,
-          navbar: { ...initialData.navbar, ...(parsed.navbar || {}) },
-          hero: { ...initialData.hero, ...(parsed.hero || {}) },
-          projectsCopy: { ...initialData.projectsCopy, ...(parsed.projectsCopy || {}) },
-          skillsCopy: { ...initialData.skillsCopy, ...(parsed.skillsCopy || {}) },
-          githubCopy: { ...initialData.githubCopy, ...(parsed.githubCopy || {}) },
-          contactCopy: { ...initialData.contactCopy, ...(parsed.contactCopy || {}) },
-          contact: { ...initialData.contact, ...(parsed.contact || {}) },
-          aiCopy: { ...initialData.aiCopy, ...(parsed.aiCopy || {}) },
-          messages: parsed.messages || [],
-        };
-        setData(merged);
-        applyTheme(merged.theme || "obsidian-gold");
-      } else {
-        applyTheme(initialData.theme || "obsidian-gold");
+    async function loadPortfolioData() {
+      // First, read localStorage for instantaneous render with zero flicker
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setData((prev) => ({ ...prev, ...parsed }));
+          applyTheme(parsed.theme || "obsidian-gold");
+        } else {
+          applyTheme("obsidian-gold");
+        }
+      } catch {
+        applyTheme("obsidian-gold");
       }
-    } catch {
-      applyTheme("obsidian-gold");
+
+      // Second, query the live remote Upstash database (Phone & PC sync)
+      try {
+        const res = await fetch(`/api/portfolio?t=${Date.now()}`, {
+          cache: "no-store",
+          headers: { Pragma: "no-cache" },
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const merged: PortfolioData = {
+              ...initialData,
+              ...json.data,
+              navbar: { ...initialData.navbar, ...(json.data.navbar || {}) },
+              hero: { ...initialData.hero, ...(json.data.hero || {}) },
+              projectsCopy: { ...initialData.projectsCopy, ...(json.data.projectsCopy || {}) },
+              skillsCopy: { ...initialData.skillsCopy, ...(json.data.skillsCopy || {}) },
+              githubCopy: { ...initialData.githubCopy, ...(json.data.githubCopy || {}) },
+              contactCopy: { ...initialData.contactCopy, ...(json.data.contactCopy || {}) },
+              contact: { ...initialData.contact, ...(json.data.contact || {}) },
+              aiCopy: { ...initialData.aiCopy, ...(json.data.aiCopy || {}) },
+              messages: json.data.messages || [],
+            };
+
+            setData(merged);
+            applyTheme(merged.theme || "obsidian-gold");
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            } catch (e) {
+              console.warn("Local storage cache write error:", e);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not synchronize with cloud DB, staying on local copy:", err);
+      }
     }
+
+    loadPortfolioData();
   }, []);
 
-  const updateData = (newData: Partial<PortfolioData>) => {
+  // 2. Update Data: Save locally AND broadcast to Upstash Cloud Database
+  const updateData = async (newData: Partial<PortfolioData>): Promise<boolean> => {
+    let updatedPayload: PortfolioData = { ...data, ...newData };
+
     setData((prev) => {
-      const updated = { ...prev, ...newData };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error("Storage write error", e);
-      }
-      return updated;
+      updatedPayload = { ...prev, ...newData };
+      return updatedPayload;
     });
+
+    applyTheme(updatedPayload.theme || "obsidian-gold");
+
+    // Write to browser cache
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPayload));
+    } catch (e) {
+      console.warn("Local storage quota error:", e);
+    }
+
+    // Broadcast globally to Upstash Redis DB
+    try {
+      const res = await fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPayload),
+      });
+
+      const json = await res.json();
+      return json.success === true;
+    } catch (err) {
+      console.error("Failed to sync to cloud database:", err);
+      return false;
+    }
   };
 
   const addMessage = (msg: Omit<ContactMessage, "id" | "createdAt">): ContactMessage => {
@@ -78,34 +130,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
       read: false,
     };
-    setData((prev) => {
-      const updated = {
-        ...prev,
-        messages: [newMessage, ...(prev.messages || [])],
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error("Storage write error", e);
-      }
-      return updated;
-    });
+    const updatedMessages = [newMessage, ...(data.messages || [])];
+    updateData({ messages: updatedMessages });
     return newMessage;
   };
 
   const deleteMessage = (id: string) => {
-    setData((prev) => {
-      const updated = {
-        ...prev,
-        messages: (prev.messages || []).filter((m) => m.id !== id),
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error("Storage write error", e);
-      }
-      return updated;
-    });
+    const updated = (data.messages || []).filter((m) => m.id !== id);
+    updateData({ messages: updated });
   };
 
   const setTheme = (theme: ThemeType) => {
