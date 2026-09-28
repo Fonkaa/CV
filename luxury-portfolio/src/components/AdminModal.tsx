@@ -53,7 +53,7 @@ export default function AdminModal() {
     }
   };
 
-  const handleFileUpload = (
+const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     onComplete: (dataUrl: string, type: "image" | "video") => void
   ) => {
@@ -61,11 +61,46 @@ export default function AdminModal() {
     if (!file) return;
 
     const isVideo = file.type.startsWith("video");
+
+    if (isVideo) {
+      alert("Videos cannot be stored in browser storage. Please provide an external video URL.");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onComplete(reader.result, isVideo ? "video" : "image");
-      }
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+
+      img.onload = () => {
+        // Create an offscreen canvas to scale and compress the image
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1000;
+        const MAX_HEIGHT = 1000;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Compress to WebP/JPEG at 75% quality (~80KB - 250KB)
+        const compressedDataUrl = canvas.toDataURL("image/webp", 0.75);
+        onComplete(compressedDataUrl, "image");
+      };
     };
     reader.readAsDataURL(file);
   };
