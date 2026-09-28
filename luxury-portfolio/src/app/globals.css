@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+
+
+/* PALETTE 1: Royal Obsidian & Champagne Gold */
+:root,
+:root[data-theme="obsidian-gold"],
+html[data-theme="obsidian-gold"] {
+  --color-bg: #09090b;
+  --color-surface: #141418;
+  --color-card: rgba(22, 22, 28, 0.92);
+  --color-border: rgba(234, 179, 8, 0.35);
+  --color-primary: #facc15;
+  --color-secondary: #fef08a;
+  --color-accent: #ca8a04;
+  --color-primary-glow: rgba(250, 204, 21, 0.35);
+  --color-text: #fafafa;
+  --color-muted: #a1a1aa;
+}
+
+/* PALETTE 2: Deep Imperial Emerald & Rose Gold */
+:root[data-theme="emerald-rose"],
+html[data-theme="emerald-rose"] {
+  --color-bg: #022019;
+  --color-surface: #04362a;
+  --color-card: rgba(6, 68, 54, 0.9);
+  --color-border: rgba(251, 146, 60, 0.45);
+  --color-primary: #fb923c;
+  --color-secondary: #5eead4;
+  --color-accent: #0f766e;
+  --color-primary-glow: rgba(251, 146, 60, 0.35);
+  --color-text: #f0fdf4;
+  --color-muted: #99f6e4;
+}
+
+/* PALETTE 3: Royal Midnight Sapphire & Electric Ice */
+:root[data-theme="sapphire-ice"],
+html[data-theme="sapphire-ice"] {
+  --color-bg: #081536;
+  --color-surface: #0f255c;
+  --color-card: rgba(19, 43, 102, 0.9);
+  --color-border: rgba(56, 189, 248, 0.45);
+  --color-primary: #38bdf8;
+  --color-secondary: #818cf8;
+  --color-accent: #2563eb;
+  --color-primary-glow: rgba(56, 189, 248, 0.4);
+  --color-text: #f0f9ff;
+  --color-muted: #bae6fd;
+}
+/* PALETTE 4: 70% Alabaster White & 30% Carbon Champagne */
+:root[data-theme="minimal-alabaster"],
+html[data-theme="minimal-alabaster"] {
+  --color-bg: #f8fafc; /* Crisp architectural white base ~70% */
+  --color-surface: #ffffff;
+  --color-card: rgba(255, 255, 255, 0.88);
+  --color-border: rgba(15, 23, 42, 0.14);
+  --color-primary: #d97706; /* 30% accent: warm luxury amber/gold */
+  --color-secondary: #0f172a; /* 30% contrast: deep charcoal */
+  --color-accent: #b45309;
+  --color-primary-glow: rgba(217, 119, 6, 0.25);
+  --color-text: #0f172a; /* High-contrast matte slate text */
+  --color-muted: #64748b;
+}
+html, body {
+  background-color: var(--color-bg) !important;
+  color: var(--color-text) !important;
+  min-height: 100vh;
+  transition: background-color 0.5s ease, color 0.5s ease;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.glass-panel {
+  background: var(--color-card) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Custom sleek scrollbar for book inner leaves */
+.book-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.book-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.book-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+}
+.book-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
